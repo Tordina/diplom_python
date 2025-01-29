@@ -1,7 +1,7 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
 import serial
-
+from urllib.parse import urlparse, parse_qs
 #ser = serial.Serial('COM3', 9600)
 
 # Открытие конфигурационного файла
@@ -21,9 +21,16 @@ class MyHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
         if self.path == "/bat":
-            self.wfile.write((str(n) + " ").encode())  # Отправка уровня батареи
+            self.wfile.write(str(n).encode())  # Отправка уровня батареи
             n -= 1
             print(f"Батарея: {n}")
+        elif self.path == "/temp":
+            self.wfile.write(str(m).encode())  # Отправка температуры
+            print(f"Температура: {m}")
+
+
+
+
         #   ser.write(b'e')
 
         #             #temp = ser.readline()
@@ -43,19 +50,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         #             # s = "bat:" + str(n) + ";temp:" + str(temp) + ";"
         #             # self.wfile.write(str.encode(str(s)))
         #
-        elif self.path == "/temp":
-            self.wfile.write((str(m) + " ").encode())       # Отправка текущей температуры
-            print(f"Температура: {m}")
 
-        elif self.path.startswith("/temp_update"):
-            # Извлекаем новое значение температуры из URL
-            try:
-                new_temp = int(self.path.split("=")[1])
-                m = new_temp
-                print(f"Температура обновлена: {m}")
-                self.wfile.write(b"OK")  # Подтверждение обновления
-            except (IndexError, ValueError):
-                self.wfile.write(b"ERROR")  # Ошибка при обработке
 
         elif self.path == "/config":
             self.wfile.write(str(num_lamps).encode())  # Отправка количества ламп
@@ -85,7 +80,32 @@ class MyHandler(SimpleHTTPRequestHandler):
             print("Лампа 3: Выключена")
             self.wfile.write(b"OK")
 
-server_address = ('172.20.10.3', 8000)
+    def do_POST(self):
+        global m
+        parsed_url = urlparse(self.path)#разбираем путь запроса напр /temp?value=25
+        query_params = parse_qs(parsed_url.query)#разбираем строку запроса напр value=25 и query_params будет выглядеть {'value': ['25']}
+
+        if parsed_url.path == "/temp": #является ли путь запроса temp
+            try:
+                new_temp = int(query_params.get('value', ['0'])[0]) # извелкает первое  значение из списка либо возвращается 0(если нету)
+                m = new_temp  # Обновление температуры на сервере
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(b'Temperature updated')  # Отправка сообщения об успехе
+                print(f"Температура обновлена: {m}")
+            except Exception as e:
+                self.send_response(400)  # Сообщение об ошибке
+                self.send_header('Content-type', 'text/plain; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(f"Ошибка при обновлении температуры: {str(e)}".encode())
+                print(f"Ошибка обработки POST запроса: {str(e)}")
+        else:
+            self.send_response(404)  # Если не найден путь
+            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.end_headers()
+
+server_address = ('10.252.37.0', 8000)
 httpd = HTTPServer(server_address, MyHandler)
 
 print("Starting server on port 8000...")
