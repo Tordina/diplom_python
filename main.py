@@ -1,6 +1,6 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import json
-import serial
+#import serial
 from urllib.parse import urlparse, parse_qs
 #ser = serial.Serial('COM3', 9600)
 
@@ -21,13 +21,12 @@ class MyHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
         if self.path == "/bat":
-            self.wfile.write(str(n).encode())  # Отправка уровня батареи
+            self.wfile.write((str(n) + "|").encode())  # Добавили "|" в конце
             n -= 1
             print(f"Батарея: {n}")
         elif self.path == "/temp":
-            self.wfile.write(str(m).encode())  # Отправка температуры
+            self.wfile.write((str(m) + "|").encode())  # Добавили"|" в конце
             print(f"Температура: {m}")
-
 
 
 
@@ -105,7 +104,7 @@ class MyHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'text/plain; charset=utf-8')
             self.end_headers()
 
-server_address = ('10.252.37.0', 8000)
+server_address = ('172.20.10.2', 8000)
 httpd = HTTPServer(server_address, MyHandler)
 
 print("Starting server on port 8000...")
